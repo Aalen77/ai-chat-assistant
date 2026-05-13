@@ -24,6 +24,11 @@ export interface SessionInfo {
   created_at: string
 }
 
+export interface UserInfo {
+  id: number
+  username: string
+}
+
 export const AI_ROLES: Record<string, { name: string; icon: string; prompt: string }> = {
   assistant: {
     name: '通用助手',

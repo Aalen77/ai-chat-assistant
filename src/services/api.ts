@@ -1,15 +1,33 @@
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3000/api'
 
+function authHeaders(): Record<string, string> {
+  const token = localStorage.getItem('token')
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...authHeaders(), ...options?.headers },
   })
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
     throw new Error(body.error || `请求失败 (${res.status})`)
   }
   return res.json()
+}
+
+export const authApi = {
+  login: (username: string, password: string) =>
+    request<{ token: string; user: { id: number; username: string } }>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username, password }),
+    }),
+  register: (username: string, password: string) =>
+    request<{ token: string; user: { id: number; username: string } }>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ username, password }),
+    }),
 }
 
 export const sessionApi = {
