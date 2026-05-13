@@ -3,27 +3,25 @@ import type { RowDataPacket, ResultSetHeader } from 'mysql2'
 
 export interface SessionRow {
   id: number
-  user_id: number
   title: string
   role: string
   created_at: Date
 }
 
 export class Session {
-  static async create(userId: number, role: string = 'assistant', title: string = '新对话'): Promise<number> {
+  static async create(role: string = 'assistant', title: string = '新对话'): Promise<number> {
     const [result] = await getPool().query<ResultSetHeader>(
-      'INSERT INTO sessions (user_id, role, title) VALUES (?, ?, ?)',
-      [userId, role, title]
+      'INSERT INTO sessions (role, title) VALUES (?, ?)',
+      [role, title]
     )
     return result.insertId
   }
 
-  static async findByUser(userId: number) {
+  static async findAll() {
     const [rows] = await getPool().query<RowDataPacket[]>(
-      'SELECT id, title, role, created_at FROM sessions WHERE user_id = ? ORDER BY created_at DESC',
-      [userId]
+      'SELECT id, title, role, created_at FROM sessions ORDER BY created_at DESC'
     )
-    return rows as Omit<SessionRow, 'user_id'>[]
+    return rows as SessionRow[]
   }
 
   static async getById(id: number) {
@@ -51,10 +49,10 @@ export class Session {
     await getPool().query<ResultSetHeader>('DELETE FROM sessions WHERE id = ?', [id])
   }
 
-  static async verifyOwner(sessionId: number, userId: number) {
+  static async exists(id: number) {
     const [rows] = await getPool().query<RowDataPacket[]>(
-      'SELECT id FROM sessions WHERE id = ? AND user_id = ?',
-      [sessionId, userId]
+      'SELECT id FROM sessions WHERE id = ?',
+      [id]
     )
     return rows.length > 0
   }

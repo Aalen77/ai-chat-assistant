@@ -1,14 +1,9 @@
-import { useState } from 'react'
-import { useAuth } from './context/AuthContext'
 import ChatInterface from './components/ChatInterface'
 import SessionSidebar from './components/SessionSidebar'
-import LoginPage from './pages/LoginPage'
-import RegisterPage from './pages/RegisterPage'
 import { useChat } from './hooks/useChat'
 import './App.css'
 
-function ChatApp() {
-  const { logout, user } = useAuth()
+function App() {
   const {
     messages, sessions, currentSessionId, isLoading, error, currentRole,
     sendMessage, clearMessages, selectSession, createSession, deleteSession,
@@ -35,11 +30,8 @@ function ChatApp() {
         onCreate={createSession}
         onDelete={deleteSession}
         onRename={renameSession}
-        onLogout={logout}
-        username={user?.username || ''}
       />
       <div className="flex-1 flex flex-col">
-        {/* 错误提示 */}
         {error && (
           <div className="bg-red-50 border-b border-red-100 text-red-600 px-4 py-2.5 text-center text-sm">
             {error}
@@ -58,19 +50,6 @@ function ChatApp() {
       </div>
     </div>
   )
-}
-
-function App() {
-  const { isAuthenticated } = useAuth()
-  const [page, setPage] = useState<'login' | 'register'>('login')
-
-  if (!isAuthenticated) {
-    return page === 'login'
-      ? <LoginPage onSwitchToRegister={() => setPage('register')} />
-      : <RegisterPage onSwitchToLogin={() => setPage('login')} />
-  }
-
-  return <ChatApp />
 }
 
 export default App

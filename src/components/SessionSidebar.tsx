@@ -9,12 +9,10 @@ interface SessionSidebarProps {
   onCreate: (role?: string) => void
   onDelete: (id: number) => void
   onRename: (id: number, title: string) => void
-  onLogout: () => void
-  username: string
 }
 
 export default function SessionSidebar({
-  sessions, currentSessionId, onSelect, onCreate, onDelete, onRename, onLogout, username,
+  sessions, currentSessionId, onSelect, onCreate, onDelete, onRename,
 }: SessionSidebarProps) {
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editTitle, setEditTitle] = useState('')
@@ -29,7 +27,6 @@ export default function SessionSidebar({
             <div className="w-6 h-6 rounded-md bg-amber-500 flex items-center justify-center text-[10px] font-bold text-white">
               G
             </div>
-            <span className="text-xs text-white/50">{username}</span>
           </div>
         )}
         <button onClick={() => setCollapsed(!collapsed)} className="text-white/20 hover:text-white/50 text-sm p-1">
@@ -90,13 +87,6 @@ export default function SessionSidebar({
                 </div>
               )
             })}
-          </div>
-
-          <div className="px-2 py-2 border-t border-white/5">
-            <button onClick={onLogout}
-              className="w-full text-white/20 hover:text-white/50 text-xs py-1.5 rounded-lg hover:bg-sidebar-hover transition-colors">
-              退出
-            </button>
           </div>
         </>
       )}
