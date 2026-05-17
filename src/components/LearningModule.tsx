@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { documentApi, type DocumentInfo } from '../services/api'
 
 const SUPPORTED_EXTENSIONS = new Set(['txt', 'md', 'pdf', 'docx', 'json', 'csv', 'png', 'jpg', 'jpeg', 'bmp', 'webp'])
-const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'bmp', 'webp'])
 
 function getFileExtension(filename: string): string {
   return filename.split('.').pop()?.toLowerCase() || ''

@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
+    "@vercel/postgres": "^0.9.0",
     "adm-zip": "^0.5.17",
     "bcryptjs": "^3.0.3",
     "cheerio": "^1.2.0",

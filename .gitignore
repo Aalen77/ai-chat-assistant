@@ -36,3 +36,5 @@ application.yml
 
 # Java build output
 java-backend/target/
+
+.vercel
