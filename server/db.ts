@@ -44,6 +44,15 @@ export async function initDB() {
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )
   `)
+  // 迁移：旧 messages 表使用 message_id 自增主键，改为 id VARCHAR(36) 主键
+  try {
+    const [cols] = await conn.query<any[]>('SHOW COLUMNS FROM messages')
+    const hasOldSchema = cols.some((c: any) => c.Field === 'message_id')
+    if (hasOldSchema) {
+      await conn.execute(`DROP TABLE IF EXISTS messages`)
+      console.log('迁移：已删除旧 messages 表，正在重建...')
+    }
+  } catch {}
   await conn.execute(`
     CREATE TABLE IF NOT EXISTS messages (
       id VARCHAR(36) PRIMARY KEY,
@@ -55,6 +64,45 @@ export async function initDB() {
       FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
     )
   `)
+
+  // 创建文档表和文档块表（用于 RAG）
+  await conn.execute(`
+    CREATE TABLE IF NOT EXISTS documents (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      filename VARCHAR(255) NOT NULL,
+      filesize INT NOT NULL DEFAULT 0,
+      filetype VARCHAR(50) DEFAULT 'txt',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `)
+  await conn.execute(`
+    CREATE TABLE IF NOT EXISTS document_chunks (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      document_id INT NOT NULL,
+      chunk_index INT NOT NULL,
+      content TEXT NOT NULL,
+      embedding JSON,
+      FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE
+    )
+  `)
+  // 迁移：添加 filepath 列
+  try {
+    const [cols] = await conn.query<any[]>('SHOW COLUMNS FROM documents')
+    if (!cols.some((c: any) => c.Field === 'filepath')) {
+      await conn.execute('ALTER TABLE documents ADD COLUMN filepath VARCHAR(500) DEFAULT NULL AFTER filename')
+      console.log('迁移：已添加 filepath 列')
+    }
+  } catch {}
+  // 迁移：添加 role 列到 users 表
+  try {
+    const [cols] = await conn.query<any[]>('SHOW COLUMNS FROM users')
+    if (!cols.some((c: any) => c.Field === 'role')) {
+      await conn.execute("ALTER TABLE users ADD COLUMN role VARCHAR(20) DEFAULT 'user'")
+      console.log('迁移：已添加 role 列')
+    }
+  } catch {}
   conn.release()
   console.log('数据库初始化完成')
 }

@@ -1,24 +1,32 @@
-const API_KEY = import.meta.env.VITE_ZHIPU_API_KEY
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://open.bigmodel.cn/api/paas/v4'
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3000/api'
+
+function authHeaders(): Record<string, string> {
+  const token = localStorage.getItem('token')
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
 
 export async function* streamChat(
   messages: { role: string; content: any }[],
+  signal?: AbortSignal,
 ): AsyncGenerator<string, void, unknown> {
-  const response = await fetch(`${API_BASE_URL}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: 'glm-4.5-air',
-      messages,
-      stream: true,
-    }),
-  })
+  let response: Response
+  try {
+    response = await fetch(`${API_BASE}/chat/stream`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders(),
+      },
+      body: JSON.stringify({ messages }),
+      signal,
+    })
+  } catch (err: any) {
+    if (err.name === 'AbortError') return
+    throw err
+  }
 
   if (!response.ok) {
-    await response.text()
+    const body = await response.json().catch(() => ({}))
     const friendly: Record<number, string> = {
       401: 'API 认证失败，请检查 API Key 是否正确配置',
       403: '没有访问 API 的权限',
@@ -27,7 +35,7 @@ export async function* streamChat(
       502: 'AI 服务暂时不可用，请稍后重试',
       503: 'AI 服务正在维护中，请稍后再试',
     }
-    throw new Error(friendly[response.status] || `请求失败(${response.status})，请稍后重试`)
+    throw new Error(body.error || friendly[response.status] || `请求失败(${response.status})，请稍后重试`)
   }
 
   const reader = response.body?.getReader()
@@ -50,14 +58,13 @@ export async function* streamChat(
         if (!trimmed || !trimmed.startsWith('data:')) continue
         const data = trimmed.slice(5).trim()
         if (data === '[DONE]') return
-
-        try {
-          const json = JSON.parse(data)
-          const content = json.choices?.[0]?.delta?.content
-          if (content) yield content
-        } catch { /* 忽略解析错误 */ }
+        yield data
       }
     }
+  } catch (err: any) {
+    // 被 AbortController 中止时不抛异常，正常结束
+    if (err.name === 'AbortError') return
+    throw err
   } finally {
     reader.releaseLock()
   }

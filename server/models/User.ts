@@ -5,6 +5,7 @@ export interface UserRow {
   id: number
   username: string
   password_hash: string
+  role: string
   created_at: Date
 }
 
@@ -25,11 +26,4 @@ export class User {
     return rows[0] as UserRow | undefined
   }
 
-  static async findById(id: number) {
-    const [rows] = await getPool().query<RowDataPacket[]>(
-      'SELECT id, username, created_at FROM users WHERE id = ?',
-      [id]
-    )
-    return rows[0] as { id: number; username: string; created_at: Date } | undefined
-  }
 }

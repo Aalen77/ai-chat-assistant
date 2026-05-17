@@ -13,7 +13,7 @@ export class Message {
   static async create(sessionId: number, message: MessageData) {
     const { id, role, content, image_url, timestamp } = message
     await getPool().query<ResultSetHeader>(
-      'INSERT INTO messages (session_id, id, role, content, image_url, timestamp) VALUES (?, ?, ?, ?, ?, ?)',
+      'REPLACE INTO messages (session_id, id, role, content, image_url, timestamp) VALUES (?, ?, ?, ?, ?, ?)',
       [sessionId, id, role, content, image_url || null, timestamp]
     )
   }

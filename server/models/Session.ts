@@ -26,14 +26,6 @@ export class Session {
     return rows as Omit<SessionRow, 'user_id'>[]
   }
 
-  static async getById(id: number) {
-    const [rows] = await getPool().query<RowDataPacket[]>(
-      'SELECT * FROM sessions WHERE id = ?',
-      [id]
-    )
-    return rows[0] as SessionRow | undefined
-  }
-
   static async update(id: number, data: { title?: string; role?: string }) {
     const updates: string[] = []
     const values: (string | number)[] = []

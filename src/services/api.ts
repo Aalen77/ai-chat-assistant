@@ -17,6 +17,23 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json()
 }
 
+export interface MessageData {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  image_url?: string | null
+  timestamp: number
+}
+
+export interface DocumentInfo {
+  id: number
+  filename: string
+  filepath: string
+  filesize: number
+  filetype: string
+  created_at: string
+}
+
 export const authApi = {
   login: (username: string, password: string) =>
     request<{ token: string; user: { id: number; username: string } }>('/auth/login', {
@@ -48,10 +65,25 @@ export const sessionApi = {
     request('/sessions/' + id + '/messages', { method: 'DELETE' }),
 }
 
-export interface MessageData {
-  id: string
-  role: 'user' | 'assistant'
-  content: string
-  image_url?: string | null
-  timestamp: number
+export const documentApi = {
+  list: () => request<DocumentInfo[]>('/documents'),
+  getContent: (id: number) => request<{ id: number; filename: string; content: string }>('/documents/' + id + '/content'),
+  upload: async (file: File) => {
+    const token = localStorage.getItem('token')
+    const form = new FormData()
+    form.append('file', file)
+    // 文件夹上传时携带相对路径，单文件用文件名
+    form.append('filepath', (file as any).webkitRelativePath || file.name)
+    const res = await fetch(`${API_BASE}/documents/upload`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      throw new Error(body.error || `上传失败 (${res.status})`)
+    }
+    return res.json()
+  },
+  delete: (id: number) => request('/documents/' + id, { method: 'DELETE' }),
 }

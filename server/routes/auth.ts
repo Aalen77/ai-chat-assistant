@@ -1,6 +1,7 @@
 import { Router, Response } from 'express'
 import bcrypt from 'bcryptjs'
 import { User } from '../models/User'
+import { getPool } from '../db'
 import { generateToken } from '../middleware/auth'
 
 const router = Router()
@@ -30,9 +31,17 @@ router.post('/register', async (req, res: Response) => {
 
     const passwordHash = await bcrypt.hash(password, 10)
     const userId = await User.create(username, passwordHash)
-    const token = generateToken(userId)
 
-    res.status(201).json({ token, user: { id: userId, username } })
+    // 首个注册用户自动设为管理员
+    const [rows] = await getPool().query<any[]>("SELECT COUNT(*) as cnt FROM users WHERE role = 'admin'")
+    const isFirst = rows[0]?.cnt === 0
+    if (isFirst) {
+      await getPool().query("UPDATE users SET role = 'admin' WHERE id = ?", [userId])
+    }
+
+    const token = generateToken(userId)
+    const role = isFirst ? 'admin' : 'user'
+    res.status(201).json({ token, user: { id: userId, username, role } })
   } catch (error) {
     console.error('注册失败:', error)
     res.status(500).json({ error: '注册失败' })
@@ -61,7 +70,7 @@ router.post('/login', async (req, res: Response) => {
     }
 
     const token = generateToken(user.id)
-    res.json({ token, user: { id: user.id, username } })
+    res.json({ token, user: { id: user.id, username, role: user.role || 'user' } })
   } catch (error) {
     console.error('登录失败:', error)
     res.status(500).json({ error: '登录失败' })

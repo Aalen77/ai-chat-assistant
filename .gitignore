@@ -27,3 +27,12 @@ dist-ssr
 .env
 .env.local
 .env.*.local
+
+# Java Spring Boot config (contains secrets)
+application.yml
+
+# Tesseract OCR data (large binary files)
+*.traineddata
+
+# Java build output
+java-backend/target/

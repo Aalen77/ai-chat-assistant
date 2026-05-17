@@ -14,6 +14,7 @@ export function useChat() {
   const [isInitialized, setIsInitialized] = useState(false)
   const initRef = useRef(false)
   const loadingRef = useRef(false)
+  const abortRef = useRef<AbortController | null>(null)
 
   // 加载会话列表
   const loadSessions = useCallback(async () => {
@@ -40,7 +41,7 @@ export function useChat() {
 
   // 选择会话
   const selectSession = useCallback(async (sessionId: number) => {
-    if (loadingRef.current) return
+    // 不中断正在进行的 AI 回复，让它在后台继续
     setCurrentSessionId(sessionId)
     setIsLoading(true)
     setError(null)
@@ -134,7 +135,7 @@ export function useChat() {
     }
 
     setMessages((prev) => [...prev, userMessage])
-    sessionApi.saveMessage(sessionId, userMessage).catch(() => {})
+    sessionApi.saveMessage(sessionId, userMessage).catch((e) => console.error('保存用户消息失败:', e))
 
     // 自动重命名（第一条消息时）
     const currentMsgs = messages
@@ -146,6 +147,10 @@ export function useChat() {
     setIsLoading(true)
     loadingRef.current = true
     setError(null)
+
+    // 创建 AbortController
+    const controller = new AbortController()
+    abortRef.current = controller
 
     const assistantMessage: Message = {
       id: crypto.randomUUID(),
@@ -160,21 +165,57 @@ export function useChat() {
       const history = buildChatHistory(currentMsgs, userMessage, currentRole)
 
       let fullContent = ''
-      for await (const token of streamChat(history)) {
+      let saveTimer = 0
+      for await (const token of streamChat(history, controller.signal)) {
         fullContent += token
-        setMessages((prev) =>
-          prev.map((m) => m.id === assistantMessage.id ? { ...m, content: fullContent } : m)
-        )
+        // 只更新属于当前 assistant 消息的状态（不干扰其他会话）
+        setMessages((prev) => {
+          const idx = prev.findIndex((m) => m.id === assistantMessage.id)
+          if (idx === -1) return prev // 已切换到其他会话
+          const next = [...prev]
+          next[idx] = { ...next[idx], content: fullContent }
+          return next
+        })
+        // 渐进保存到服务器（每 50 字符或首次收到内容时）
+        if (fullContent.length === token.length || fullContent.length - saveTimer > 50) {
+          saveTimer = fullContent.length
+          if (fullContent.trim()) {
+            sessionApi.saveMessage(sessionId, { ...assistantMessage, content: fullContent })
+              .catch((e) => console.error('渐进保存失败:', e))
+          }
+        }
       }
 
-      const finalMessage = { ...assistantMessage, content: fullContent }
-      sessionApi.saveMessage(sessionId, finalMessage).catch(() => {})
+      // 最终保存到服务器
+      if (fullContent) {
+        try {
+          await sessionApi.saveMessage(sessionId, { ...assistantMessage, content: fullContent })
+        } catch (e) {
+          console.error('保存AI消息失败:', e)
+        }
+      } else {
+        // 流结束但无内容：移除空白的 assistant 消息（避免 "..." 卡死）
+        setMessages((prev) => {
+          const idx = prev.findIndex((m) => m.id === assistantMessage.id)
+          if (idx === -1) return prev
+          return prev.filter((m) => m.id !== assistantMessage.id)
+        })
+        if (!controller.signal.aborted) {
+          setError('AI 返回内容为空，请稍后重试')
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : '发生未知错误')
-      setMessages((prev) => prev.filter((m) => m.id !== assistantMessage.id))
+      setMessages((prev) => {
+        const idx = prev.findIndex((m) => m.id === assistantMessage.id)
+        if (idx === -1) return prev
+        return prev.filter((m) => m.id !== assistantMessage.id)
+      })
     } finally {
+      // 完成时关闭 loading（此时 selectSession 早已完成，不会干扰）
       setIsLoading(false)
       loadingRef.current = false
+      abortRef.current = null
     }
   }, [currentSessionId, currentRole, messages, renameSession])
 
@@ -243,7 +284,6 @@ export function useChat() {
     deleteSession,
     renameSession,
     exportChat,
-    loadSessions,
   }
 }
 

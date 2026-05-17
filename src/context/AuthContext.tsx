@@ -17,10 +17,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const savedToken = localStorage.getItem('token')
-    const savedUser = localStorage.getItem('user')
-    if (savedToken && savedUser) {
-      setToken(savedToken)
-      setUser(JSON.parse(savedUser))
+    try {
+      const rawUser = localStorage.getItem('user')
+      const savedUser = rawUser ? JSON.parse(rawUser) : null
+      if (savedToken && savedUser) {
+        setToken(savedToken)
+        setUser(savedUser)
+      }
+    } catch {
+      localStorage.removeItem('token')
+      localStorage.removeItem('user')
     }
   }, [])
 
